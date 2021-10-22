@@ -1,0 +1,18 @@
+
+/*
+bool test_13 = false;
+
+  if (test_13) {
+    // analogWrite(11, 32);
+    if (cmd_array_msg.layout.dim[0].size == 2){
+      digitalWrite(13, HIGH);
+    }
+  } else {
+    // analogWrite(11, 0);
+    if (cmd_array_msg.layout.dim[0].size == 2){
+      digitalWrite(13, LOW);
+    }
+  }
+  test_13 = !test_13;
+*/
+
