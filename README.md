@@ -15,3 +15,5 @@ http://wiki.ros.org/ROSberryPi/Installing%20ROS%20Melodic%20on%20the%20Raspberry
 
 Ставить без Arduino IDE http://wiki.ros.org/rosserial_arduino/Tutorials/Arduino%20IDE%20Setup
 
+
+
