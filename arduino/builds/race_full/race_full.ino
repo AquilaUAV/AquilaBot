@@ -10,7 +10,7 @@ ros::NodeHandle_<ArduinoHardware, 5, 5, 128, 128> nh;
 
 // ----- global parameters -----
 
-#define BAUD 500000
+#define BAUD 115200 // max stable for raspi
 #define DELAY 10
 
 // ----- local parameters  -----
@@ -19,13 +19,13 @@ ros::NodeHandle_<ArduinoHardware, 5, 5, 128, 128> nh;
 
 #define pin_buzzer 9
 
-#define pin_line_sensor_L 2
-#define pin_line_sensor_R 3
+#define pin_line_sensor_left 2
+#define pin_line_sensor_right 3
 
-#define pin_encoder_L 2
-#define pin_encoder_R 3
-#define pin_interrupt_encoder_L 0
-#define pin_interrupt_encoder_R 1
+#define pin_encoder_left 2
+#define pin_encoder_right 3
+#define pin_interrupt_encoder_left 0
+#define pin_interrupt_encoder_right 1
 
 #define pin_motor_dir_right 4
 #define pin_motor_pwm_right 5
@@ -65,52 +65,52 @@ ros::Subscriber<std_msgs::Int16> sub_buzzer("/omegabot/cmd/buzzer", buzzer_cb);
 
 // ----- line_sensor -----
 
-std_msgs::Int16 line_sensor_msg_L;
-std_msgs::Int16 line_sensor_msg_R;
-ros::Publisher pub_sensor_msg_L("/omegabot/sensor/line/L", &line_sensor_msg_L);
-ros::Publisher pub_sensor_msg_R("/omegabot/sensor/line/R", &line_sensor_msg_R);
+std_msgs::Int16 line_sensor_msg_left;
+std_msgs::Int16 line_sensor_msg_right;
+ros::Publisher pub_sensor_msg_left("/omegabot/sensor/line/left", &line_sensor_msg_left);
+ros::Publisher pub_sensor_msg_right("/omegabot/sensor/line/right", &line_sensor_msg_right);
 
 void line_sensor_init(){
-  pinMode(pin_line_sensor_L, INPUT);
-  pinMode(pin_line_sensor_R, INPUT);
+  pinMode(pin_line_sensor_left, INPUT);
+  pinMode(pin_line_sensor_right, INPUT);
 }
 
 void line_sensor_spin(){
-  line_sensor_msg_L.data = analogRead(pin_line_sensor_L);
-  line_sensor_msg_R.data = analogRead(pin_line_sensor_R);
-  pub_sensor_msg_L.publish(&line_sensor_msg_L);
-  pub_sensor_msg_R.publish(&line_sensor_msg_R);
+  line_sensor_msg_left.data = analogRead(pin_line_sensor_left);
+  line_sensor_msg_right.data = analogRead(pin_line_sensor_right);
+  pub_sensor_msg_left.publish(&line_sensor_msg_left);
+  pub_sensor_msg_right.publish(&line_sensor_msg_right);
 }
 
 // ----- encoder_sensor -----
 
-std_msgs::UInt32 encoder_msg_L;
-std_msgs::UInt32 encoder_msg_R;
-ros::Publisher pub_encoder_L("/omegabot/sensor/encoder/L", &encoder_msg_L);
-ros::Publisher pub_encoder_R("/omegabot/sensor/encoder/R", &encoder_msg_R);
+std_msgs::UInt32 encoder_msg_left;
+std_msgs::UInt32 encoder_msg_right;
+ros::Publisher pub_encoder_left("/omegabot/sensor/encoder/left", &encoder_msg_left);
+ros::Publisher pub_encoder_right("/omegabot/sensor/encoder/right", &encoder_msg_right);
 
 unsigned long encoder_value[2];
 
-void encoder_L_cb(){
+void encoder_left_cb(){
   encoder_value[0]++;
 }
 
-void encoder_R_cb(){
+void encoder_right_cb(){
   encoder_value[1]++;
 }
 
 void encoder_init(){
-  pinMode(pin_encoder_L, INPUT_PULLUP);
-  pinMode(pin_encoder_R, INPUT_PULLUP);
-  attachInterrupt(pin_interrupt_encoder_L, encoder_L_cb, CHANGE);
-  attachInterrupt(pin_interrupt_encoder_R, encoder_R_cb, CHANGE);
+  pinMode(pin_encoder_left, INPUT_PULLUP);
+  pinMode(pin_encoder_right, INPUT_PULLUP);
+  attachInterrupt(pin_interrupt_encoder_left, encoder_left_cb, CHANGE);
+  attachInterrupt(pin_interrupt_encoder_right, encoder_right_cb, CHANGE);
 }
 
 void encoder_spin(){
-  encoder_msg_L.data = encoder_value[0];
-  encoder_msg_R.data = encoder_value[1];
-  pub_encoder_L.publish(&encoder_msg_L);
-  pub_encoder_R.publish(&encoder_msg_R);
+  encoder_msg_left.data = encoder_value[0];
+  encoder_msg_right.data = encoder_value[1];
+  pub_encoder_left.publish(&encoder_msg_left);
+  pub_encoder_right.publish(&encoder_msg_right);
 }
 
 // ----- motor_cmd -----
@@ -197,10 +197,10 @@ void setup() {
   
   nh.advertise(pub_button_msg);
   nh.subscribe(sub_buzzer);
-  nh.advertise(pub_sensor_msg_L);
-  nh.advertise(pub_sensor_msg_R);
-  nh.advertise(pub_encoder_L);
-  nh.advertise(pub_encoder_R);
+  nh.advertise(pub_sensor_msg_left);
+  nh.advertise(pub_sensor_msg_right);
+  nh.advertise(pub_encoder_left);
+  nh.advertise(pub_encoder_right);
   nh.subscribe(sub_motor_left);
   nh.subscribe(sub_motor_right);
   nh.subscribe(sub_servo_1);

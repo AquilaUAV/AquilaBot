@@ -1,0 +1,34 @@
+# /etc/systemd/system/rosserial-arduino.service
+
+[Unit]
+Requires=roscore.service
+PartOf=roscore.service
+After=NetworkManager.service time-sync.target roscore.service
+[Service]
+Type=simple
+User=ubuntu
+Restart=always
+TimeoutSec=1
+ExecStart=/usr/sbin/rosserial-arduino
+[Install]
+WantedBy=multi-user.target
+
+### /usr/sbin/rosserial-arduino
+
+
+### /usr/sbin/magni-base
+
+#!/bin/bash
+
+source /home/ubuntu/service_ws/devel/setup.bash
+source /etc/ubiquity/env.sh
+
+log_path="/tmp"
+export ROS_HOME=$(echo ~ubuntu)/.ros
+export ROS_LOG_DIR=$log_path
+
+rosrun rosserial_python serial_node.py _port:=/dev/ttyACM0 _baud:=115200
+
+###
+
+sudo systemctl disable magni-base

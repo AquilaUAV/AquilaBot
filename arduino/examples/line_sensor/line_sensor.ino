@@ -3,26 +3,26 @@
 
 ros::NodeHandle nh;
 
-#define pin_line_sensor_L 0
-#define pin_line_sensor_R 1
+#define pin_line_sensor_left 0
+#define pin_line_sensor_right 1
 #define BAUD 115200
 #define DELAY 10
 
-std_msgs::Int16 line_sensor_msg_L;
-std_msgs::Int16 line_sensor_msg_R;
-ros::Publisher pub_sensor_msg_L("/omegabot/sensor/line/L", &line_sensor_msg_L);
-ros::Publisher pub_sensor_msg_R("/omegabot/sensor/line/R", &line_sensor_msg_R);
+std_msgs::Int16 line_sensor_msg_left;
+std_msgs::Int16 line_sensor_msg_right;
+ros::Publisher pub_sensor_msg_left("/omegabot/sensor/line/left", &line_sensor_msg_left);
+ros::Publisher pub_sensor_msg_right("/omegabot/sensor/line/right", &line_sensor_msg_right);
 
 void line_sensor_init(){
-  pinMode(pin_line_sensor_L, INPUT);
-  pinMode(pin_line_sensor_R, INPUT);
+  pinMode(pin_line_sensor_left, INPUT);
+  pinMode(pin_line_sensor_right, INPUT);
 }
 
 void line_sensor_spin(){
-  line_sensor_msg_L.data = analogRead(pin_line_sensor_L);
-  line_sensor_msg_R.data = analogRead(pin_line_sensor_R);
-  pub_sensor_msg_L.publish(&line_sensor_msg_L);
-  pub_sensor_msg_R.publish(&line_sensor_msg_R);
+  line_sensor_msg_left.data = analogRead(pin_line_sensor_left);
+  line_sensor_msg_right.data = analogRead(pin_line_sensor_right);
+  pub_sensor_msg_left.publish(&line_sensor_msg_left);
+  pub_sensor_msg_right.publish(&line_sensor_msg_right);
 }
 
 void setup() {
@@ -30,8 +30,8 @@ void setup() {
   
   nh.getHardware()->setBaud(BAUD);
   nh.initNode();
-  nh.advertise(pub_sensor_msg_L);
-  nh.advertise(pub_sensor_msg_R);
+  nh.advertise(pub_sensor_msg_left);
+  nh.advertise(pub_sensor_msg_right);
 }
 
 void loop() {
