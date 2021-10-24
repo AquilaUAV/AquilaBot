@@ -1,4 +1,6 @@
 #include <ros.h>
+#include <std_msgs/Float32.h>
+#include <std_msgs/Int16.h>
 #include <std_msgs/Int16MultiArray.h>
 #include <std_msgs/MultiArrayDimension.h>
 #include <Servo.h>
@@ -16,35 +18,38 @@ ros::NodeHandle nh;
 #define pwm_limit 255
 #define pin_servo_1 8
 #define pin_servo_2 9
-#define pin_servo_3 10
-#define pin_servo_4 11
+#define pin_sonar_trig 10
+#define pin_sonar_echo 11
+#define SONAR_CLEAR_Mc 2
+#define SONAR_ACTIVE_Mc 10
+#define DEFAULT_SONAR_PULSE_TIMEOUT 100000
 
 #define BAUD 115200
 #define DELAY 10
 
 Servo servo_1;
 Servo servo_2;
-Servo servo_3;
-Servo servo_4;
 
 std_msgs::Int16MultiArray encoder_msg;
 ros::Publisher pub_encoder("encoder", &encoder_msg);
 std_msgs::Int16MultiArray analog_read_msg;
 ros::Publisher pub_analog_read("analog_read", &analog_read_msg);
-
-int encoder_value[2];
+std_msgs::Float32 sonar_distance_msg;
+ros::Publisher pub_sonar_distance("sonar_distance", &sonar_distance_msg);
 
 void encoder_1_cb(){
-  encoder_value[0]++;
+  encoder_msg.data[0]++;
 }
 
 void encoder_2_cb(){
-  encoder_value[1]++;
+  encoder_msg.data[1]++;
 }
 
 void encoder_init(){
   encoder_msg.data_length = 2;
   encoder_msg.data = (int*)malloc(sizeof(int) * 2);
+  encoder_msg.data[0] = 0;
+  encoder_msg.data[1] = 0;
   pinMode(pin_encoder_1, INPUT_PULLUP);
   pinMode(pin_encoder_2, INPUT_PULLUP);
   attachInterrupt(0, encoder_1_cb, CHANGE);
@@ -52,8 +57,6 @@ void encoder_init(){
 }
 
 void encoder_spin(){
-  encoder_msg.data[0] = encoder_value[0];
-  encoder_msg.data[1] = encoder_value[1];
   pub_encoder.publish(&encoder_msg);
 }
 
@@ -65,10 +68,8 @@ void analog_init(){
 }
 
 void analog_spin(){
-  int analog_value_1 = analogRead(pin_analog_1);
-  int analog_value_2 = analogRead(pin_analog_2);
-  analog_read_msg.data[0] = analog_value_1;
-  analog_read_msg.data[1] = analog_value_2;
+  analog_read_msg.data[0] = analogRead(pin_analog_1);
+  analog_read_msg.data[1] = analogRead(pin_analog_2);
   pub_analog_read.publish(&analog_read_msg);
 }
 
@@ -112,40 +113,56 @@ ros::Subscriber<std_msgs::Int16MultiArray> motor_sub("motor_cmd", motor_cb);
 void servo_init(){
   servo_1.attach(pin_servo_1);
   servo_2.attach(pin_servo_2);
-  servo_3.attach(pin_servo_3);
-  servo_4.attach(pin_servo_4);
 }
 
 void servo_cb(const std_msgs::Int16MultiArray& cmd_array_msg){
-  int servo_1_cmd = cmd_array_msg.data[0];
-  int servo_2_cmd = cmd_array_msg.data[1];
-  int servo_3_cmd = cmd_array_msg.data[2];
-  int servo_4_cmd = cmd_array_msg.data[3];
-  servo_1.write(servo_1_cmd);
-  servo_2.write(servo_2_cmd);
-  servo_3.write(servo_3_cmd);
-  servo_4.write(servo_4_cmd);
+  servo_1.write(cmd_array_msg.data[0]);
+  servo_2.write(cmd_array_msg.data[1]);
 }
 ros::Subscriber<std_msgs::Int16MultiArray> servo_sub("servo_cmd", servo_cb);
 
+void sonar_cb(const std_msgs::Int16& sonar_pulse_timeout){
+  digitalWrite(pin_sonar_trig, LOW);
+  delayMicroseconds(SONAR_CLEAR_Mc);
+  digitalWrite(pin_sonar_trig, HIGH);
+  delayMicroseconds(SONAR_ACTIVE_Mc);
+  digitalWrite(pin_sonar_trig, LOW);
+  long tics;
+  if (sonar_pulse_timeout.data == 0) {
+    tics = pulseIn(pin_sonar_echo, HIGH, DEFAULT_SONAR_PULSE_TIMEOUT);
+   } else {
+    tics = pulseIn(pin_sonar_echo, HIGH, 1000l * sonar_pulse_timeout.data);
+  }
+  sonar_distance_msg.data = 0.00034 * tics / 2;
+  pub_sonar_distance.publish(&sonar_distance_msg);
+}
+ros::Subscriber<std_msgs::Int16> sonar_pulse_timeout_sub("sonar_pulse_timeout", sonar_cb);
+
+void sonar_init(){
+  pinMode(pin_sonar_echo, INPUT);
+  pinMode(pin_sonar_trig, OUTPUT);
+}
 
 void setup() {
-  encoder_init();
   analog_init();
   motor_init();
   servo_init();
+  sonar_init();
+  encoder_init();
   
   nh.getHardware()->setBaud(BAUD);
   nh.initNode();
-  nh.advertise(pub_encoder);
   nh.advertise(pub_analog_read);
   nh.subscribe(motor_sub);
   nh.subscribe(servo_sub);
+  nh.advertise(pub_sonar_distance);
+  nh.subscribe(sonar_pulse_timeout_sub);
+  nh.advertise(pub_encoder);
 }
 
 void loop() {
+  //analog_spin();
   encoder_spin();
-  analog_spin();
   nh.spinOnce();
   delay(DELAY);
 }
