@@ -1,8 +1,6 @@
 # AquilaBot
 Решение на базе OmegaBot
 
-
-
 Сонар HCSR04
 
 
@@ -110,14 +108,6 @@ sudo systemctl start rosserial-arduino
 
 
 
-
-
-
-
-
-
-
-
 ## Работа с образами
 
 #### Запись образа
@@ -125,10 +115,6 @@ sudo systemctl start rosserial-arduino
 Открываем etcher
 
 Прошиваем sd карту
-
-Открываем gparted
-
-Расширяем раздел на всю sd карту
 
 #### Бекап образа
 
