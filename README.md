@@ -7,6 +7,16 @@
 
 
 
+## Прошивка raspberry pi 3b+
+
+Использован уже готовый дитрибутив для роботов на raspberry pi.
+
+https://downloads.ubiquityrobotics.com/pi.html
+
+
+
+
+
 
 
 ## Подготовка образа raspberry pi 3b+
@@ -45,4 +55,3 @@ http://wiki.ros.org/melodic/Installation/Ubuntu
 Ставить без Arduino IDE http://wiki.ros.org/rosserial_arduino/Tutorials/Arduino%20IDE%20Setup
 
 raspi-config - включить камеру и другие нужные интерфейсы связи с пишкой.
-
