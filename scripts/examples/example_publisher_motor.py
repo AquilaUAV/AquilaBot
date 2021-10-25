@@ -7,8 +7,8 @@ from time import time
 from math import sin
 
 max_voltage = 255
-omega_1 = 0.9
-omega_2 = 0.5
+omega_1 = 2.9
+omega_2 = 2.5
 phi_1 = 2
 phi_2 = 5
 
