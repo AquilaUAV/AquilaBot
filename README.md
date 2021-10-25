@@ -82,7 +82,7 @@ echo "log_path="/tmp"" >> /usr/sbin/rosserial-arduino
 echo "export ROS_HOME=\$(echo ~ubuntu)/.ros" >> /usr/sbin/rosserial-arduino
 echo "export ROS_LOG_DIR=\$log_path" >> /usr/sbin/rosserial-arduino
 echo "" >> /usr/sbin/rosserial-arduino
-echo "rosrun rosserial_python serial_node.py _port:=/dev/ttyACM0 _baud:=115200" >> /usr/sbin/rosserial-arduino
+echo "rosrun rosserial_python serial_node.py _port:=/dev/ttyACM0 _baud:=250000" >> /usr/sbin/rosserial-arduino
 
 sudo chmod +x /usr/sbin/rosserial-arduino
 

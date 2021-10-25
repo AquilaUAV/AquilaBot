@@ -6,18 +6,14 @@
 #include <Servo.h>
 
 // subscribers, publishers, input buffer size, output buffer size
-ros::NodeHandle_<ArduinoHardware, 5, 5, 256, 256> nh;
+ros::NodeHandle_<ArduinoHardware, 8, 8, 128*3, 128*3> nh;
 
 // ----- global parameters -----
 
-#define BAUD 115200 // max stable for raspi
-#define DELAY 33
+#define BAUD 250000 // max stable for raspi is 115200
+#define DELAY 20
 
 // ----- local parameters  -----
-
-#define pin_button 8
-
-#define pin_buzzer 9
 
 #define pin_line_sensor_left 2
 #define pin_line_sensor_right 3
@@ -36,32 +32,6 @@ ros::NodeHandle_<ArduinoHardware, 5, 5, 256, 256> nh;
 
 #define servo_pin_1 10
 #define servo_pin_2 11
-
-// ----- button_sensor -----
-
-std_msgs::Bool button_msg;
-ros::Publisher pub_button_msg("/omegabot/sensor/button", &button_msg);
-
-void button_init(){
-  pinMode(pin_button, INPUT);
-}
-
-void button_spin(){
-  button_msg.data = digitalRead(pin_button);
-  pub_button_msg.publish(&button_msg);
-}
-
-// ----- buzzer_cmd -----
-
-void buzzer_init(){
-  pinMode(pin_buzzer, OUTPUT);
-}
-
-void buzzer_cb(const std_msgs::Int16 &buzzer_cmd){
-  analogWrite(pin_buzzer, buzzer_cmd.data);
-}
-
-ros::Subscriber<std_msgs::Int16> sub_buzzer("/omegabot/cmd/buzzer", buzzer_cb);
 
 // ----- line_sensor -----
 
@@ -185,8 +155,6 @@ ros::Subscriber<std_msgs::Int16> sub_servo_2("/omegabot/cmd/servo/2", servo_2_cb
 // ----- main -----
 
 void setup() {
-  button_init();
-  buzzer_init();
   line_sensor_init();
   encoder_init();
   motor_init();
@@ -195,8 +163,6 @@ void setup() {
   nh.getHardware()->setBaud(BAUD);
   nh.initNode();
   
-  nh.advertise(pub_button_msg);
-  nh.subscribe(sub_buzzer);
   nh.advertise(pub_sensor_msg_left);
   nh.advertise(pub_sensor_msg_right);
   nh.advertise(pub_encoder_left);
@@ -208,7 +174,6 @@ void setup() {
 }
 
 void loop() {
-  button_spin();
   line_sensor_spin();
   encoder_spin();
   motor_securely_system_update();

@@ -17,7 +17,7 @@ def publisher_motor():
     motor_cmd_left = rospy.Publisher('/omegabot/cmd/motor/left', Int16, queue_size=1)
     motor_cmd_right = rospy.Publisher('/omegabot/cmd/motor/right', Int16, queue_size=1)
     rospy.init_node('motor_cmd', anonymous=True)
-    rate = rospy.Rate(30)
+    rate = rospy.Rate(50)
     while not rospy.is_shutdown():
 
         control = (max_voltage*sin(omega_1*time() + phi_1), max_voltage*sin(omega_2*time() + phi_2))
