@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import rospy
 from std_msgs.msg import Int16
 
@@ -15,7 +17,7 @@ phi_2 = 5
 def publisher_motor():
     servo_cmd = [rospy.Publisher('/omegabot/cmd/servo/{0}'.format(i), Int16, queue_size=1) for i in range(1, 2+1)]
     rospy.init_node('servo_cmd', anonymous=True)
-    rate = rospy.Rate(10)
+    rate = rospy.Rate(100)
     while not rospy.is_shutdown():
 
         avg_angle = (max_angle + min_angle) / 2
