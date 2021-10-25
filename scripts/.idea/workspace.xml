@@ -12,16 +12,16 @@
   <component name="CoverageDataManager">
     <SUITE FILE_PATH="coverage/scripts$subscriber_test.coverage" NAME="subscriber_test Coverage Results" MODIFIED="1635119643110" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />
     <SUITE FILE_PATH="coverage/scripts$test.coverage" NAME="test Coverage Results" MODIFIED="1635120073392" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />
-    <SUITE FILE_PATH="coverage/scripts$publisher_servo.coverage" NAME="publisher_servo Coverage Results" MODIFIED="1635121385853" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />
-    <SUITE FILE_PATH="coverage/scripts$publisher_motor.coverage" NAME="publisher_motor Coverage Results" MODIFIED="1635120481318" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />
+    <SUITE FILE_PATH="coverage/scripts$publisher_servo.coverage" NAME="publisher_servo Coverage Results" MODIFIED="1635121795438" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />
+    <SUITE FILE_PATH="coverage/scripts$publisher_motor.coverage" NAME="publisher_motor Coverage Results" MODIFIED="1635122203478" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/examples" />
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="publisher_motor.py" pinned="false" current-in-tab="false">
+      <file leaf-file-name="publisher_motor.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/examples/publisher_motor.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state>
-              <caret column="21" selection-start-column="21" selection-end-column="21" />
+            <state relative-caret-position="420">
+              <caret line="28" lean-forward="true" selection-start-line="28" selection-end-line="28" />
               <folding>
                 <element signature="e#0#12#0" expanded="true" />
               </folding>
@@ -29,11 +29,11 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="publisher_servo.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="publisher_servo.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/examples/publisher_servo.py">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="285">
-              <caret line="19" column="24" selection-start-line="19" selection-start-column="22" selection-end-line="19" selection-end-column="24" />
+              <caret line="19" column="23" selection-start-line="19" selection-start-column="23" selection-end-line="19" selection-end-column="23" />
               <folding>
                 <element signature="e#1#13#0" expanded="true" />
               </folding>
@@ -78,10 +78,10 @@
     <option name="CHANGED_PATHS">
       <list>
         <option value="$PROJECT_DIR$/examples/test.py" />
-        <option value="$PROJECT_DIR$/examples/publisher_motor.py" />
         <option value="$PROJECT_DIR$/examples/subscriber_test.py" />
         <option value="$PROJECT_DIR$/examples/publisher_test.py" />
         <option value="$PROJECT_DIR$/examples/publisher_servo.py" />
+        <option value="$PROJECT_DIR$/examples/publisher_motor.py" />
       </list>
     </option>
   </component>
@@ -145,7 +145,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.publisher_servo">
+  <component name="RunManager" selected="Python.publisher_motor">
     <configuration name="publisher_motor" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="scripts" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -230,8 +230,8 @@
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.publisher_servo" />
         <item itemvalue="Python.publisher_motor" />
+        <item itemvalue="Python.publisher_servo" />
         <item itemvalue="Python.test" />
         <item itemvalue="Python.subscriber_test" />
       </list>
@@ -534,22 +534,22 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/examples/publisher_motor.py">
+    <entry file="file://$PROJECT_DIR$/examples/publisher_servo.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state>
-          <caret column="21" selection-start-column="21" selection-end-column="21" />
+        <state relative-caret-position="285">
+          <caret line="19" column="23" selection-start-line="19" selection-start-column="23" selection-end-line="19" selection-end-column="23" />
           <folding>
-            <element signature="e#0#12#0" expanded="true" />
+            <element signature="e#1#13#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/examples/publisher_servo.py">
+    <entry file="file://$PROJECT_DIR$/examples/publisher_motor.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="285">
-          <caret line="19" column="24" selection-start-line="19" selection-start-column="22" selection-end-line="19" selection-end-column="24" />
+        <state relative-caret-position="420">
+          <caret line="28" lean-forward="true" selection-start-line="28" selection-end-line="28" />
           <folding>
-            <element signature="e#1#13#0" expanded="true" />
+            <element signature="e#0#12#0" expanded="true" />
           </folding>
         </state>
       </provider>

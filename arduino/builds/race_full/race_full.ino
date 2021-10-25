@@ -6,12 +6,12 @@
 #include <Servo.h>
 
 // subscribers, publishers, input buffer size, output buffer size
-ros::NodeHandle_<ArduinoHardware, 5, 5, 128, 128> nh;
+ros::NodeHandle_<ArduinoHardware, 5, 5, 256, 256> nh;
 
 // ----- global parameters -----
 
 #define BAUD 115200 // max stable for raspi
-#define DELAY 10
+#define DELAY 33
 
 // ----- local parameters  -----
 
