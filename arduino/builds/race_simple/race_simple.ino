@@ -8,8 +8,8 @@ ros::NodeHandle_<ArduinoHardware, 2*3, 4*3, 128*3, 128*3> nh;
 
 // ----- global parameters -----
 
-#define BAUD 250000 // max stable for raspi is 115200; 250000 is semi-stable
-#define DELAY 10
+#define BAUD 115200 // max stable for raspi is 115200; 250000 is semi-stable
+#define DELAY 20
 
 // ----- local parameters  -----
 
