@@ -4,10 +4,11 @@
 #define DELAY 0
 
 // ----- local parameters  -----
-#define pwm_target_max 180
-#define pwm_target_min -40
-#define pwm_target_lost_max 180
-#define pwm_target_lost_min -40
+#define pwm_target_crossroads 120
+#define pwm_target_max 120
+#define pwm_target_min 0
+#define pwm_target_lost_max 120
+#define pwm_target_lost_min 0
 
 #define pin_button_line_sensor_calibration 8
 #define pin_led_calibration 13
@@ -29,29 +30,17 @@
 #define pwm_limit 255
 #define motor_securely_system_timeout 250
 
-// ----- line_sensor_logics -----
+// ----- functions -----
 
-double line_sensor_sum_black_threshold = 1.5;
-double line_sensor_sum_black_threshold_lower = 1.3;
-double line_sensor_sum_lost_threshold = 0.05;
-
-int rotation_cmd = 0;
-int forward_cmd = 2;
-int sonar_move_cmd = 0;
-
-// ----- line_sensor_calibration -----
-
-int line_sensor_delta = 30;
-
-int line_sensor_left_white = 303;
-int line_sensor_left_black = 943;
-int line_sensor_right_white = 147;
-int line_sensor_right_black = 919;
-
-// ----- line_sensor -----
-
-double line_sensor_left_last = 0.0;
-double line_sensor_right_last = 0.0;
+double clip(int value, int value_min, int value_max){
+  if (value > value_max){
+    value = value_max;
+  }
+  if (value < value_min){
+    value = value_min;
+  }
+  return value;
+}
 
 double clip(double value, double value_min, double value_max){
   if (value > value_max){
@@ -63,6 +52,51 @@ double clip(double value, double value_min, double value_max){
   return value;
 }
 
+
+int sign(int x){
+  if (x >= 0){
+    return 1;
+  }
+  else {
+    return -1;
+  }
+}
+
+int sign(double x){
+  if (x >= 0.0){
+    return 1;
+  }
+  else {
+    return -1;
+  }
+}
+
+// ----- line_sensor_logics -----
+
+double line_sensor_sum_black_threshold = 1.5;
+double line_sensor_sum_black_threshold_lower = 1.3;
+double line_sensor_sum_lost_threshold = 0.05;
+
+int lost_cmd = 0;
+int rotation_cmd = -2;
+int forward_cmd = -1; // *= 2
+int sonar_move_cmd = -1;
+
+// ----- line_sensor_calibration -----
+
+int line_sensor_delta = 30;
+
+// 389 - 928 - 231 - 904
+int line_sensor_left_white = 389; 
+int line_sensor_left_black = 928;
+int line_sensor_right_white = 231;
+int line_sensor_right_black = 904;
+
+// ----- line_sensor -----
+
+double line_sensor_left_last = 0.0;
+double line_sensor_right_last = 0.0;
+
 void line_sensor_init(){
   pinMode(pin_line_sensor_left, INPUT);
   pinMode(pin_line_sensor_right, INPUT);
@@ -73,24 +107,11 @@ void line_sensor_spin(){
   double line_sensor_right = 1.0d * (analogRead(pin_line_sensor_right) - line_sensor_right_white) / (line_sensor_right_black - line_sensor_right_white);
   line_sensor_left = clip(line_sensor_left, 0.0, 1.0);
   line_sensor_right = clip(line_sensor_right, 0.0, 1.0);
-  
-  /*
-  Serial.print(line_sensor_left_white);
-  Serial.print(" - ");
-  Serial.print(line_sensor_left_black);
-  Serial.print(" - ");
-  Serial.print(line_sensor_right_white);
-  Serial.print(" - ");
-  Serial.print(line_sensor_right_black);
-  Serial.println("");
-  */
-
   control_cmd(line_sensor_left, line_sensor_right);
-  if ((line_sensor_left + line_sensor_right < line_sensor_sum_black_threshold) && 
-      (line_sensor_left + line_sensor_right > line_sensor_sum_lost_threshold)){
-        line_sensor_left_last = line_sensor_left;
-        line_sensor_right_last = line_sensor_right;
-    }
+  if (line_sensor_left + line_sensor_right > line_sensor_sum_lost_threshold){
+    line_sensor_left_last = line_sensor_left;
+    line_sensor_right_last = line_sensor_right;
+  }
 }
 
 // ----- button_line_sensor_calibration -----
@@ -136,6 +157,14 @@ void line_sensor_calibration(){
   digitalWrite(pin_led_calibration, !led_state);
   while (digitalRead(pin_button_line_sensor_calibration) == LOW){
     waiting_counter += 1;
+    Serial.print(line_sensor_left_white);
+    Serial.print(" - ");
+    Serial.print(line_sensor_left_black);
+    Serial.print(" - ");
+    Serial.print(line_sensor_right_white);
+    Serial.print(" - ");
+    Serial.print(line_sensor_right_black);
+    Serial.println("");
     if (waiting_counter > 100){
       waiting_counter = 0;
       digitalWrite(pin_led_calibration, led_state);
@@ -199,34 +228,120 @@ void motor_securely_system_update(){
   }
 }
 
+// ----- control_loops -----
+
+unsigned long encoder_last_left = 0;
+unsigned long encoder_last_right = 0;
+
+unsigned long encoder_check_timeout = 100;
+
+double black_encoder_k_P = 20.0;
+double black_encoder_k_I = 0.5;
+double black_encoder_I_windup = 1.0 * pwm_target_crossroads;
+
+double rotate_k_P = 10.0;
+double rotate_k_I = 3.5;
+double rotate_I_windup = 1.0 * pwm_target_crossroads;
+
+int encoder_ticks_robot_length = 31;
+int encoder_ticks_half_rotation = 75;
+
+void control_loop_stop(){
+  motor_cb(0, pin_motor_dir_left, pin_motor_pwm_left);
+  motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
+  encoder_last_left = encoder_value[0];
+  encoder_last_right = encoder_value[1];
+  delay(encoder_check_timeout);
+  while (encoder_value[0] != encoder_last_left && encoder_value[1] != encoder_last_right) {
+    motor_cb(0, pin_motor_dir_left, pin_motor_pwm_left);
+    motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
+    encoder_last_left = encoder_value[0];
+    encoder_last_right = encoder_value[1];
+    delay(encoder_check_timeout);
+  }
+}
+
+void control_loop_move_steps(int steps){
+  motor_cb(0, pin_motor_dir_left, pin_motor_pwm_left);
+  motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
+  encoder_last_left = encoder_value[0];
+  encoder_last_right = encoder_value[1];
+  double error = abs(steps) - (1.0d * (encoder_value[0] + encoder_value[1] - encoder_last_left - encoder_last_right) / 2);
+  double error_I = 0.0;
+  while (error > 0.0){
+    int control = (int)(round(sign(steps) * abs(black_encoder_k_P * error + black_encoder_k_I * error_I)));
+    control = clip(control, -pwm_target_crossroads, pwm_target_crossroads);
+    motor_cb(control, pin_motor_dir_left, pin_motor_pwm_left);
+    motor_cb(control, pin_motor_dir_right, pin_motor_pwm_right);
+    delay(1);
+    error = abs(steps) - (1.0d * (encoder_value[0] + encoder_value[1] - encoder_last_left - encoder_last_right) / 2);
+    error_I += error * (1.0 / 1000.0);
+    error_I = clip(error_I, -black_encoder_I_windup, black_encoder_I_windup);
+  }
+  motor_cb(0, pin_motor_dir_left, pin_motor_pwm_left);
+  motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
+}
+
+void control_loop_rotate_steps(int steps, bool catch_lost = false){
+  motor_cb(0, pin_motor_dir_left, pin_motor_pwm_left);
+  motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
+  encoder_last_left = encoder_value[0];
+  encoder_last_right = encoder_value[1];
+  double error_left = abs(steps) - 1.0d * (encoder_value[0] - encoder_last_left);
+  double error_left_I = 0.0;
+  double error_right = abs(steps) - 1.0d * (encoder_value[1] - encoder_last_right);
+  double error_right_I = 0.0;
+  while ((catch_lost && lost_cmd == 0) || (true)){
+    int control_left = -(int)(round(sign(steps) * abs(rotate_k_P * error_left + rotate_k_I * error_left_I)));
+    int control_right = (int)(round(sign(steps) * abs(rotate_k_P * error_right + rotate_k_I * error_right_I)));
+    control_left = clip(control_left, -pwm_target_crossroads, pwm_target_crossroads);
+    control_right = clip(control_right, -pwm_target_crossroads, pwm_target_crossroads);
+    motor_cb(control_left, pin_motor_dir_left, pin_motor_pwm_left);
+    motor_cb(control_right, pin_motor_dir_right, pin_motor_pwm_right);
+    delay(1);
+    error_left = abs(steps) - 1.0d * (encoder_value[0] - encoder_last_left);
+    error_right = abs(steps) - 1.0d * (encoder_value[1] - encoder_last_right);
+    error_left_I += error_left * (1.0 / 1000.0);
+    error_left_I = clip(error_left_I, -rotate_I_windup, rotate_I_windup);
+    error_right_I += error_right * (1.0 / 1000.0);
+    error_right_I = clip(error_right_I, -rotate_I_windup, rotate_I_windup);
+    Serial.println(error_left_I);
+    if (error_left < 0.0){
+      error_left = 0.0;
+      error_left_I = 0.0;
+    }
+    if (error_right < 0.0){
+      error_right = 0.0;
+      error_right_I = 0.0;
+    }
+    if (error_left == 0.0 && error_right == 0.0){
+      break;
+    }
+  }
+  motor_cb(0, pin_motor_dir_left, pin_motor_pwm_left);
+  motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
+}
+
 // ----- control_cmd -----
 
 unsigned long black_encoder_left = 0;
 unsigned long black_encoder_right = 0;
 
-unsigned long encoder_last_left = 0;
-unsigned long encoder_last_right = 0;
-
-unsigned long encoder_check_timeout = 50;
-unsigned long encoder_check_time_last = 0;
-
-double black_encoder_k_P = 1.0
-
 void control_cmd(double line_sensor_left, double line_sensor_right){
+  if (line_sensor_left + line_sensor_right < line_sensor_sum_lost_threshold){
+    lost_cmd = sign(line_sensor_right_last - line_sensor_left_last);
+  }
+  else {
+    lost_cmd = 0;
+  }
   if (line_sensor_left + line_sensor_right > line_sensor_sum_black_threshold) {
-    if (forward_cmd % 2 == 0){
+    if (forward_cmd % 2 == 0 && forward_cmd > 0){
       forward_cmd -= 1;
-      if (forward_cmd < 0) {
-        forward_cmd = 0;
-      }
     }
   }
   else if (line_sensor_left + line_sensor_right < line_sensor_sum_black_threshold_lower) {
-    if (forward_cmd % 2 == 1){
+    if (forward_cmd % 2 == 1 && forward_cmd > 0){
       forward_cmd -= 1;
-      if (forward_cmd < 0) {
-        forward_cmd = 0;
-      }
     }
   }
   if (forward_cmd == 1){
@@ -235,37 +350,35 @@ void control_cmd(double line_sensor_left, double line_sensor_right){
     encoder_last_left = encoder_value[0] - 1;
     encoder_last_right = encoder_value[1] - 1;
   }
-
-
-  // Сначала отработать повороты, потом движение прямо.
-
-  
-  if (forward_cmd > 1){
-    Serial.print(forward_cmd);
-    Serial.print(" = ");
-    Serial.print(line_sensor_left);
-    Serial.print(" - ");
-    Serial.print(line_sensor_right);
+  //Serial.print(lost_cmd);
+  //Serial.println("");
+  if (rotation_cmd != 0){
+    Serial.print(rotation_cmd);
     Serial.println("");
-    
+
+    control_loop_rotate_steps(- 2 * encoder_ticks_half_rotation);
+    rotation_cmd = 0;
+  }
+  else if (forward_cmd % 2 == 0 && forward_cmd > 1){
     motor_cb(pwm_target_max - (int)(line_sensor_left * (pwm_target_max - pwm_target_min)), pin_motor_dir_left, pin_motor_pwm_left);
     motor_cb(pwm_target_max - (int)(line_sensor_right * (pwm_target_max - pwm_target_min)), pin_motor_dir_right, pin_motor_pwm_right);
   }
-  else {
-    // Мы остановились
-    if (encoder_last_left == encoder_value[0] && encoder_last_right == encoder_value[1]){
-      
-    }
-    else {
-      encoder_last_left = encoder_value[0];
-      encoder_last_right = encoder_value[1];
-      motor_cb(0, pin_motor_dir_left, pin_motor_pwm_left);
-      motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
-    }
-    
-    
+  else if (forward_cmd % 2 == 1){
+    motor_cb(pwm_target_crossroads, pin_motor_dir_left, pin_motor_pwm_left);
+    motor_cb(pwm_target_crossroads, pin_motor_dir_right, pin_motor_pwm_right);
   }
+  else if (forward_cmd == 0){
+    control_loop_stop();
+    int encoder_error_left = encoder_last_left - black_encoder_left;
+    int encoder_error_right = encoder_last_right - black_encoder_right;
+    int encoder_error = (encoder_error_left + encoder_error_right) / 2;
+    control_loop_move_steps(encoder_ticks_robot_length - encoder_error);
 
+    forward_cmd -= 1;
+  }
+  else {
+    Serial.println("IDK");
+  }
   /*
   if (line_sensor_left + line_sensor_right < line_sensor_sum_lost_threshold){
     double line_sensor_error = line_sensor_right_last - line_sensor_left_last;
@@ -310,7 +423,7 @@ void setup() {
   motor_init();
   button_line_sensor_calibration_init();
 
-  line_sensor_calibration();
+  //line_sensor_calibration();
 }
 
 void loop() {
