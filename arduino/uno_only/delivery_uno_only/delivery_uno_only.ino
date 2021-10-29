@@ -356,7 +356,7 @@ void control_cmd(double line_sensor_left, double line_sensor_right){
     Serial.print(rotation_cmd);
     Serial.println("");
 
-    control_loop_rotate_steps(- 2 * encoder_ticks_half_rotation);
+    control_loop_rotate_steps(- 2+ * encoder_ticks_half_rotation);
     rotation_cmd = 0;
   }
   else if (forward_cmd % 2 == 0 && forward_cmd > 1){
