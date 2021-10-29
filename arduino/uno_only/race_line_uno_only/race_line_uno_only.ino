@@ -4,8 +4,8 @@
 #define DELAY 20
 
 // ----- local parameters  -----
-#define pwm_target_max 255
-#define pwm_target_min -100
+#define pwm_target_max 230
+#define pwm_target_min -150
 
 #define pin_button_line_sensor_calibration 8
 #define pin_led_calibration 13
@@ -33,12 +33,12 @@ double line_sensor_sum_crossroads_threshold = 1.5;
 
 // ----- line_sensor_calibration -----
 
-int line_sensor_delta = 100;
+int line_sensor_delta = 20;
 
-int line_sensor_left_white = 324 + line_sensor_delta;
-int line_sensor_left_black = 922 - line_sensor_delta;
-int line_sensor_right_white = 160 + line_sensor_delta;
-int line_sensor_right_black = 880 - line_sensor_delta;
+int line_sensor_left_white;
+int line_sensor_left_black;
+int line_sensor_right_white;
+int line_sensor_right_black;
 
 // ----- line_sensor -----
 
@@ -71,12 +71,6 @@ void line_sensor_spin(){
     motor_cb(pwm_target_max - (int)(line_sensor_left * (pwm_target_max - pwm_target_min)), pin_motor_dir_left, pin_motor_pwm_left);
     motor_cb(pwm_target_max - (int)(line_sensor_right * (pwm_target_max - pwm_target_min)), pin_motor_dir_right, pin_motor_pwm_right);
   }
-  
-  
-  Serial.print(line_sensor_left);
-  Serial.print(" - ");
-  Serial.print(line_sensor_right);
-  Serial.println("");
 }
 
 // ----- button_line_sensor_calibration -----
@@ -110,11 +104,19 @@ void line_sensor_calibration(){
       line_sensor_right_black = (int)calibration_line_sensor_right;
     }
   }
+
+  line_sensor_left_white += line_sensor_delta;
+  line_sensor_left_black -= line_sensor_delta;
+  line_sensor_right_white += line_sensor_delta;
+  line_sensor_right_black -= line_sensor_delta;
+
+  
   int waiting_counter = 0;
   int led_state = HIGH;
+  digitalWrite(pin_led_calibration, !led_state);
   while (digitalRead(pin_button_line_sensor_calibration) == LOW){
     waiting_counter += 1;
-    if (waiting_counter > calibration_samples / 2){
+    if (waiting_counter > 100){
       waiting_counter = 0;
       digitalWrite(pin_led_calibration, led_state);
       led_state = !led_state;
