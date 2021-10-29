@@ -238,16 +238,18 @@ def control(sectors):
     control_callback(error_dx, error_angle / pi, pwm_target, error_normal, True)
 
 
-control_pwm_max = 120
-control_pwm_lost = 120
-control_pwm_forward = [0, 120, 120]
-control_dx_windup = [0, 120, 120]
+control_pwm_max = 220
+control_pwm_lost = 200
+
+control_pwm_forward = [0, 120, 220]
+control_dx_windup = [0, 120, 220]
+control_angle_windup = [0, 220, 0]
+
 control_dx_k_P = [0, 1.2 * control_pwm_max, 1.2 * control_pwm_max]  # 255 is 1
 control_dx_k_D = [0, 0.0 * control_pwm_max, 0.0 * control_pwm_max]  # 255 is 1
 control_dx_k_I = [0, 0.0 * control_pwm_max, 0.0 * control_pwm_max]  # 255 is 1
 control_dx_k_I_windup = [0, 0, 0]  # 1 is 1
-control_angle_k_P = [0, 1.0 * control_pwm_max, 0.0 * control_pwm_max]  # 255 is 1
-control_angle_windup = [0, 160, 0]
+control_angle_k_P = [0, 3.0 * control_pwm_max, 0.0 * control_pwm_max]  # 255 is 1
 
 control_low_pass_kilter_k = 0.0
 
@@ -363,7 +365,7 @@ def control_callback(error_dx, error_angle, pwm_target, error_normal, is_move):
         servo_set = True
 
     # TODO REMOVE
-    control = np.array([0.0, 0.0])
+    # control = np.array([0.0, 0.0])
 
     control_cmd = np.ndarray.astype(np.round(control), dtype=np.int)
 

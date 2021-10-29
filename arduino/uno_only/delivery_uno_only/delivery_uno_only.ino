@@ -4,10 +4,10 @@
 #define DELAY 0
 
 // ----- local parameters  -----
-#define pwm_target_max 255
-#define pwm_target_min -120
-#define pwm_target_lost_max 255
-#define pwm_target_lost_min -120
+#define pwm_target_max 180
+#define pwm_target_min -40
+#define pwm_target_lost_max 180
+#define pwm_target_lost_min -40
 
 #define pin_button_line_sensor_calibration 8
 #define pin_led_calibration 13
@@ -32,11 +32,16 @@
 // ----- line_sensor_logics -----
 
 double line_sensor_sum_black_threshold = 1.5;
+double line_sensor_sum_black_threshold_lower = 1.3;
 double line_sensor_sum_lost_threshold = 0.05;
+
+int rotation_cmd = 0;
+int forward_cmd = 2;
+int sonar_move_cmd = 0;
 
 // ----- line_sensor_calibration -----
 
-int line_sensor_delta = 40;
+int line_sensor_delta = 30;
 
 int line_sensor_left_white = 303;
 int line_sensor_left_black = 943;
@@ -196,8 +201,72 @@ void motor_securely_system_update(){
 
 // ----- control_cmd -----
 
-void control_cmd(double line_sensor_left, double line_sensor_right){
+unsigned long black_encoder_left = 0;
+unsigned long black_encoder_right = 0;
 
+unsigned long encoder_last_left = 0;
+unsigned long encoder_last_right = 0;
+
+unsigned long encoder_check_timeout = 50;
+unsigned long encoder_check_time_last = 0;
+
+double black_encoder_k_P = 1.0
+
+void control_cmd(double line_sensor_left, double line_sensor_right){
+  if (line_sensor_left + line_sensor_right > line_sensor_sum_black_threshold) {
+    if (forward_cmd % 2 == 0){
+      forward_cmd -= 1;
+      if (forward_cmd < 0) {
+        forward_cmd = 0;
+      }
+    }
+  }
+  else if (line_sensor_left + line_sensor_right < line_sensor_sum_black_threshold_lower) {
+    if (forward_cmd % 2 == 1){
+      forward_cmd -= 1;
+      if (forward_cmd < 0) {
+        forward_cmd = 0;
+      }
+    }
+  }
+  if (forward_cmd == 1){
+    black_encoder_left = encoder_value[0];
+    black_encoder_right = encoder_value[1];
+    encoder_last_left = encoder_value[0] - 1;
+    encoder_last_right = encoder_value[1] - 1;
+  }
+
+
+  // Сначала отработать повороты, потом движение прямо.
+
+  
+  if (forward_cmd > 1){
+    Serial.print(forward_cmd);
+    Serial.print(" = ");
+    Serial.print(line_sensor_left);
+    Serial.print(" - ");
+    Serial.print(line_sensor_right);
+    Serial.println("");
+    
+    motor_cb(pwm_target_max - (int)(line_sensor_left * (pwm_target_max - pwm_target_min)), pin_motor_dir_left, pin_motor_pwm_left);
+    motor_cb(pwm_target_max - (int)(line_sensor_right * (pwm_target_max - pwm_target_min)), pin_motor_dir_right, pin_motor_pwm_right);
+  }
+  else {
+    // Мы остановились
+    if (encoder_last_left == encoder_value[0] && encoder_last_right == encoder_value[1]){
+      
+    }
+    else {
+      encoder_last_left = encoder_value[0];
+      encoder_last_right = encoder_value[1];
+      motor_cb(0, pin_motor_dir_left, pin_motor_pwm_left);
+      motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
+    }
+    
+    
+  }
+
+  /*
   if (line_sensor_left + line_sensor_right < line_sensor_sum_lost_threshold){
     double line_sensor_error = line_sensor_right_last - line_sensor_left_last;
     int cmd_direction = 0;
@@ -208,32 +277,27 @@ void control_cmd(double line_sensor_left, double line_sensor_right){
       motor_cb(pwm_target_lost_min, pin_motor_dir_left, pin_motor_pwm_left);
       motor_cb(pwm_target_lost_max, pin_motor_dir_right, pin_motor_pwm_right);
     }
-    /*
+    
+    Serial.print(forward_cmd);
+    Serial.print(" = ");
     Serial.print(cmd_direction);
     Serial.print(" = ");
     Serial.print("LOST");
     Serial.println("");
-    */
-    
-  }
-  else if (line_sensor_left + line_sensor_right > line_sensor_sum_black_threshold) {
-    /*
-    Serial.print("BLACK");
-    Serial.println("");
-    */
-    motor_cb(pwm_target_max, pin_motor_dir_left, pin_motor_pwm_left);
-    motor_cb(pwm_target_max, pin_motor_dir_right, pin_motor_pwm_right);
   }
   else {
-    /*
+    
+    Serial.print(forward_cmd);
+    Serial.print(" = ");
     Serial.print(line_sensor_left);
     Serial.print(" - ");
     Serial.print(line_sensor_right);
     Serial.println("");
-    */
-    motor_cb(pwm_target_max - (int)(line_sensor_left * (pwm_target_max - pwm_target_min)), pin_motor_dir_left, pin_motor_pwm_left);
-    motor_cb(pwm_target_max - (int)(line_sensor_right * (pwm_target_max - pwm_target_min)), pin_motor_dir_right, pin_motor_pwm_right);
+    
+    //motor_cb(pwm_target_max - (int)(line_sensor_left * (pwm_target_max - pwm_target_min)), pin_motor_dir_left, pin_motor_pwm_left);
+    //motor_cb(pwm_target_max - (int)(line_sensor_right * (pwm_target_max - pwm_target_min)), pin_motor_dir_right, pin_motor_pwm_right);
   }
+  */
 }
 
 
