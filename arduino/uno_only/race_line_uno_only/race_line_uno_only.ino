@@ -5,7 +5,12 @@
 
 // ----- local parameters  -----
 #define pwm_target_max 255
-#define pwm_target_min 0
+#define pwm_target_min -100
+
+#define pin_button_line_sensor_calibration 8
+#define pin_led_calibration 13
+#define calibration_delay 10
+#define calibration_samples 1000
 
 #define pin_line_sensor_left 0
 #define pin_line_sensor_right 1
@@ -74,6 +79,49 @@ void line_sensor_spin(){
   Serial.println("");
 }
 
+// ----- button_line_sensor_calibration -----
+
+void button_line_sensor_calibration_init(){
+  pinMode(pin_button_line_sensor_calibration, INPUT);
+  pinMode(pin_led_calibration, OUTPUT);
+}
+
+void line_sensor_calibration(){
+  for (int color = 0; color < 2; color++){
+    digitalWrite(pin_led_calibration, LOW);
+    while (digitalRead(pin_button_line_sensor_calibration) == LOW){
+      delay(calibration_delay);
+    }
+    digitalWrite(pin_led_calibration, HIGH);
+    long calibration_line_sensor_left = 0;
+    long calibration_line_sensor_right = 0;
+    for (int i = 0; i < calibration_samples; i++){
+      calibration_line_sensor_left += analogRead(pin_line_sensor_left);
+      calibration_line_sensor_right += analogRead(pin_line_sensor_right);
+      delay(1);
+    }
+    calibration_line_sensor_left /= calibration_samples;
+    calibration_line_sensor_right /= calibration_samples;
+    if (color == 0){
+      line_sensor_left_white = (int)calibration_line_sensor_left;
+      line_sensor_right_white = (int)calibration_line_sensor_right;
+    } else if (color == 1){
+      line_sensor_left_black = (int)calibration_line_sensor_left;
+      line_sensor_right_black = (int)calibration_line_sensor_right;
+    }
+  }
+  int waiting_counter = 0;
+  int led_state = HIGH;
+  while (digitalRead(pin_button_line_sensor_calibration) == LOW){
+    waiting_counter += 1;
+    if (waiting_counter > calibration_samples / 2){
+      waiting_counter = 0;
+      digitalWrite(pin_led_calibration, led_state);
+      led_state = !led_state;
+    }
+    delay(1);
+  }
+}
 
 // ----- encoder_sensor -----
 
@@ -132,10 +180,13 @@ void motor_securely_system_update(){
 // ----- main -----
 
 void setup() {
+  Serial.begin(115200);
   line_sensor_init();
   encoder_init();
   motor_init();
-  Serial.begin(115200);
+  button_line_sensor_calibration_init();
+
+  line_sensor_calibration();
 }
 
 void loop() {
