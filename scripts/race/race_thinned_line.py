@@ -24,7 +24,7 @@ RASPI = False
 DEBUG = True
 RAW = True
 
-debug_skeletonize = False
+debug_skeletonize = True
 debug_lines_hor_ver = False
 
 image_compress_factor = 3.0
@@ -99,7 +99,7 @@ def max_pooling(skeletonized):
 
 
 def image_callback(msg):
-    global last_time, fps_counter, processing_time
+    global last_time, fps_counter, processing_time, control_last
     time_start_timer = time.time()
     try:
         if RAW:
@@ -224,31 +224,32 @@ def image_callback(msg):
     time_now = time.time()
     processing_time += time_now - time_start_timer
     if time_now > last_time + fps_timeout:
-        rospy.loginfo("fps: {:.3f}\t| proc: {:2.2%}".format(fps_counter / (time_now - last_time),
-                                                            processing_time / (time_now - last_time)))
+        rospy.loginfo("fps: {:.3f}\t| proc: {:2.2%}\t|{}".format(fps_counter / (time_now - last_time),
+                                                                 processing_time / (time_now - last_time),
+                                                                 control_last))
         fps_counter = 0
         processing_time = 0.0
         last_time = time_now
 
 
 def control(sectors):
-    [error_dx, error_angle, pwm_target, is_lost] = control_calc(sectors)
+    [error_dx, error_angle, pwm_target, error_normal] = control_calc(sectors)
 
-    control_callback(error_dx, error_angle / pi, pwm_target, is_lost, True)
+    control_callback(error_dx, error_angle / pi, pwm_target, error_normal, True)
 
 
-control_pwm_max = 255
-control_pwm_lost = 200
-control_pwm_forward = [0, 200, 200]
-control_dx_windup = 200
-control_dx_k_P = 1.0 * control_pwm_max  # 255 is 1
-control_dx_k_D = 0.5 * control_pwm_max  # 255 is 1
-control_dx_k_I = 0.1 * control_pwm_max  # 255 is 1
-control_dx_k_I_windup = 0.4  # 1 is 1
-control_angle_k_P = 0.0 * control_pwm_max  # 255 is 1
-control_angle_windup = 0
+control_pwm_max = 120
+control_pwm_lost = 120
+control_pwm_forward = [0, 120, 120]
+control_dx_windup = [0, 120, 120]
+control_dx_k_P = [0, 1.2 * control_pwm_max, 1.2 * control_pwm_max]  # 255 is 1
+control_dx_k_D = [0, 0.0 * control_pwm_max, 0.0 * control_pwm_max]  # 255 is 1
+control_dx_k_I = [0, 0.0 * control_pwm_max, 0.0 * control_pwm_max]  # 255 is 1
+control_dx_k_I_windup = [0, 0, 0]  # 1 is 1
+control_angle_k_P = [0, 1.0 * control_pwm_max, 0.0 * control_pwm_max]  # 255 is 1
+control_angle_windup = [0, 160, 0]
 
-control_low_pass_kilter_k = 0.5
+control_low_pass_kilter_k = 0.0
 
 motor_cmd_left = rospy.Publisher('/omegabot/cmd/motor/left', Int16, queue_size=1)
 motor_cmd_right = rospy.Publisher('/omegabot/cmd/motor/right', Int16, queue_size=1)
@@ -257,15 +258,14 @@ servo_cmd = [rospy.Publisher('/omegabot/cmd/servo/{}'.format(i), Int16, queue_si
 
 def control_calc(sectors):
     if len(sectors) == 0:
-        return [0, 0, 0, True]
-    is_lost = False
+        return [0, 0, 0, []]
 
     error_normal = []
     for sector_id in range(len(sectors)):
         if not np.isinf(sectors[sector_id][2]):
             error_normal.append(sector_id)
     if len(error_normal) == 0:
-        return [0, 0, 0, True]
+        return [0, 0, 0, []]
 
     """
     error_dx = 0.0
@@ -285,7 +285,7 @@ def control_calc(sectors):
 
     pwm_target = control_pwm_forward[len(error_normal)]
 
-    return [error_dx, error_angle, pwm_target, is_lost]
+    return [error_dx, error_angle, pwm_target, error_normal]
 
 
 global servo_set
@@ -297,10 +297,11 @@ control_dx_time_last = None
 control_last = np.array([0.0, 0.0])
 
 
-def control_callback(error_dx, error_angle, pwm_target, is_lost, is_move):
+def control_callback(error_dx, error_angle, pwm_target, error_normal, is_move):
     global servo_set, control_dx_I, control_dx_last, control_dx_time_last, control_last
-    print(control_dx_I)
-    if is_lost:
+
+    # print(control_dx_I)
+    if len(error_normal) == 0:
         if control_dx_last is not None:
             if control_dx_last > 0.0:
                 motor_cmd_left.publish(control_pwm_lost)
@@ -329,19 +330,23 @@ def control_callback(error_dx, error_angle, pwm_target, is_lost, is_move):
         control_dx_time_last = control_dx_time_now
 
     control_dx_I += error_dx
-    control_dx_I = np.clip(control_dx_I, -control_dx_k_I_windup, control_dx_k_I_windup)
+    control_dx_I = np.clip(control_dx_I, -control_dx_k_I_windup[len(error_normal)],
+                           control_dx_k_I_windup[len(error_normal)])
 
     # control_fwd = np.array([pwm_target, pwm_target], dtype=np.float32)
 
-    control_dx = np.array([error_dx * control_dx_k_P + control_dx_I * control_dx_k_I + control_dx_D * control_dx_k_D,
-                           -error_dx * control_dx_k_P - control_dx_I * control_dx_k_I - control_dx_D * control_dx_k_D],
+    control_dx = np.array([error_dx * control_dx_k_P[len(error_normal)] + control_dx_I * control_dx_k_I[
+        len(error_normal)] + control_dx_D * control_dx_k_D[len(error_normal)],
+                           -error_dx * control_dx_k_P[len(error_normal)] - control_dx_I * control_dx_k_I[
+                               len(error_normal)] - control_dx_D * control_dx_k_D[len(error_normal)]],
                           dtype=np.float32)
 
-    control_angle = np.array([-error_angle * control_angle_k_P,
-                              error_angle * control_angle_k_P], dtype=np.float32)
+    control_angle = np.array([-error_angle * control_angle_k_P[len(error_normal)],
+                              error_angle * control_angle_k_P[len(error_normal)]], dtype=np.float32)
 
-    control_dx = np.clip(control_dx, -control_dx_windup, control_dx_windup)
-    control_angle = np.clip(control_angle, -control_angle_windup, control_angle_windup)
+    control_dx = np.clip(control_dx, -control_dx_windup[len(error_normal)], control_dx_windup[len(error_normal)])
+    control_angle = np.clip(control_angle, -control_angle_windup[len(error_normal)],
+                            control_angle_windup[len(error_normal)])
 
     control = control_angle + control_dx
     if pwm_target > np.max(control):
@@ -357,8 +362,12 @@ def control_callback(error_dx, error_angle, pwm_target, is_lost, is_move):
         servo_cmd[1].publish(60)  # 60
         servo_set = True
 
+    # TODO REMOVE
+    control = np.array([0.0, 0.0])
+
     control_cmd = np.ndarray.astype(np.round(control), dtype=np.int)
 
+    print(control_cmd)
     if is_move:
         motor_cmd_left.publish(control_cmd[0])
         motor_cmd_right.publish(control_cmd[1])

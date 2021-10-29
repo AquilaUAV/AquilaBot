@@ -22,7 +22,7 @@ ros::NodeHandle_<ArduinoHardware, 2*3, 4*3, 128*3, 128*3> nh;
 #define pin_motor_pwm_right 5
 #define pin_motor_pwm_left 6
 #define pin_motor_dir_left 7
-#define pwm_limit 255
+#define pwm_limit 120
 #define motor_securely_system_timeout 250
 
 #define servo_pin_1 10
