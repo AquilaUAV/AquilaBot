@@ -246,18 +246,19 @@ unsigned long encoder_last_right = 0;
 
 unsigned long encoder_check_timeout = 100;
 
-double black_encoder_k_P = 20.0;
-double black_encoder_k_I = 0.5;
+double black_encoder_k_P = 15.0;
+double black_encoder_k_I = 5.0;
 double black_encoder_I_windup = 1.0 * pwm_target_crossroads;
 
-double rotate_k_P = 10.0;
-double rotate_k_I = 2.5;
+double rotate_k_P = 15.0;
+double rotate_k_I = 5.0;
 double rotate_I_windup = 1.0 * pwm_target_crossroads;
 
-int encoder_ticks_robot_length = -10; // 31
+int encoder_ticks_robot_length = 14; // 31
 int encoder_ticks_half_rotation = 75;
 int encoder_ticks_start = 30;
 int encoder_ticks_stop = 30;
+int encoder_ticks_crossroads = 15;
 
 void control_loop_stop(){
   motor_cb(0, pin_motor_dir_left, pin_motor_pwm_left);
@@ -286,11 +287,13 @@ void control_loop_move_steps(int steps){
     control = clip(control, -pwm_target_crossroads, pwm_target_crossroads);
     motor_cb(control, pin_motor_dir_left, pin_motor_pwm_left);
     motor_cb(control, pin_motor_dir_right, pin_motor_pwm_right);
-    delay(1);
+    delay(20);
     error = 1.0 * abs(steps) - (1.0 * (encoder_value[0] + encoder_value[1] - encoder_last_left - encoder_last_right) / 2);
     error_I += error * (1.0 / 1000.0);
     error_I = clip(error_I, -black_encoder_I_windup, black_encoder_I_windup);
+    
     Serial.println(error);
+    
     if (error <= 0.001){
       error = 0.0;
       error_I = 0.0;
@@ -301,24 +304,31 @@ void control_loop_move_steps(int steps){
   motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
 }
 
-void control_loop_rotate_steps(int steps, bool catch_lost = false){
+void control_loop_rotate_steps(int steps, bool catch_lost){
   motor_cb(0, pin_motor_dir_left, pin_motor_pwm_left);
   motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
   encoder_last_left = encoder_value[0];
   encoder_last_right = encoder_value[1];
-  double error_rotate = abs(steps) - 1.0d * (encoder_value[0] + encoder_value[1] - encoder_last_right - encoder_last_left);
+  double error_rotate = abs(steps) - 1.0 * (encoder_value[0] + encoder_value[1] - encoder_last_right - encoder_last_left);
   double error_rotate_I = 0.0;
-  while ((catch_lost && lost_cmd == 0) || (error_rotate > 0.0)){
+  while (error_rotate > 0.0){
     int control_rotate = (int)(round(sign(steps) * abs(rotate_k_P * error_rotate + rotate_k_I * error_rotate_I)));
     control_rotate = clip(control_rotate, -pwm_target_crossroads, pwm_target_crossroads);
     motor_cb(control_rotate, pin_motor_dir_left, pin_motor_pwm_left);
     motor_cb(-control_rotate, pin_motor_dir_right, pin_motor_pwm_right);
-    delay(1);
-    error_rotate = abs(steps) - 1.0d * (encoder_value[0] + encoder_value[1] - encoder_last_right - encoder_last_left);
+    delay(20);
+    error_rotate = abs(steps) - 1.0 * (encoder_value[0] + encoder_value[1] - encoder_last_right - encoder_last_left);
     error_rotate_I += error_rotate * (1.0 / 1000.0);
     error_rotate_I = clip(error_rotate_I, -rotate_I_windup, rotate_I_windup);
+    
     Serial.println(control_rotate);
+    
     if (error_rotate <= 0.001){
+      error_rotate = 0.0;
+      error_rotate_I = 0.0;
+      break;
+    }
+    if (catch_lost && lost_cmd != 0){
       error_rotate = 0.0;
       error_rotate_I = 0.0;
       break;
@@ -391,8 +401,8 @@ void control_cmd(double line_sensor_left, double line_sensor_right){
   if (forward_cmd == 1){
     black_encoder_left = encoder_value[0];
     black_encoder_right = encoder_value[1];
-    encoder_last_left = encoder_value[0] - 1;
-    encoder_last_right = encoder_value[1] - 1;
+    encoder_last_left = encoder_value[0];
+    encoder_last_right = encoder_value[1];
   }
   //Serial.print(lost_cmd);
   //Serial.println("");
@@ -406,13 +416,16 @@ void control_cmd(double line_sensor_left, double line_sensor_right){
   else if (rotation_cmd != 0){
     for (int i = 0; i < abs(rotation_cmd) - 1; i++){
       control_loop_rotate_steps(sign(rotation_cmd) * encoder_ticks_half_rotation, false);
-      control_loop_rotate_stabilize();
       control_loop_stop();
     }
-    control_loop_rotate_steps(sign(rotation_cmd) * encoder_ticks_half_rotation / 2, false);
-    control_loop_rotate_steps(sign(rotation_cmd) * encoder_ticks_half_rotation, true);
-    control_loop_rotate_stabilize();
+    //control_loop_rotate_steps(sign(rotation_cmd) * encoder_ticks_half_rotation / 2, false);
+    //control_loop_rotate_steps(sign(rotation_cmd) * encoder_ticks_half_rotation, true);
+    //control_loop_rotate_stabilize();
+    
+    control_loop_rotate_steps(sign(rotation_cmd) * encoder_ticks_half_rotation, false);
     control_loop_stop();
+    control_loop_move_steps(encoder_ticks_crossroads);
+    
     rotation_cmd = 0;
   }
   else if (forward_cmd % 2 == 0 && forward_cmd > 1){
@@ -425,9 +438,8 @@ void control_cmd(double line_sensor_left, double line_sensor_right){
   }
   else if (forward_cmd == 0){
     control_loop_stop();
-    int encoder_error_left = encoder_last_left - black_encoder_left;
-    int encoder_error_right = encoder_last_right - black_encoder_right;
-    int encoder_error = (encoder_error_left + encoder_error_right) / 2;
+    int encoder_error = (encoder_value[0] + encoder_value[1] - black_encoder_left - black_encoder_right) / 2;
+    control_loop_stop();
     control_loop_move_steps(encoder_ticks_robot_length - encoder_error);
     control_loop_stop();
     forward_cmd -= 1;
@@ -440,6 +452,7 @@ void control_cmd(double line_sensor_left, double line_sensor_right){
     iteration += 1;
     if (iteration == 1){
       start_cmd = 1;
+      
       rotation_cmd = 0; // 0 is stop *= 2
       forward_cmd = -1; // -1 is stop *= 2
       sonar_move_cmd = -1;
