@@ -4,7 +4,7 @@
 #define DELAY 0
 
 // ----- local parameters  -----
-#define error_k_pow 1.0 
+#define error_k_pow 1.0
 #define error_k_P 1.0
 #define error_k_I 0.1
 #define error_k_D 0.5
