@@ -78,19 +78,24 @@ double line_sensor_sum_black_threshold_lower = 1.3;
 double line_sensor_sum_lost_threshold = 0.05;
 
 int lost_cmd = 0;
-int rotation_cmd = -2;
-int forward_cmd = -1; // *= 2
+
+int iteration = 0;
+
+int start_cmd = 0;
+int rotation_cmd = 0; // 0 is stop *= 2
+int forward_cmd = -1; // -1 is stop *= 2
 int sonar_move_cmd = -1;
+int stop_cmd = 0;
 
 // ----- line_sensor_calibration -----
 
 int line_sensor_delta = 30;
 
-// 389 - 928 - 231 - 904
-int line_sensor_left_white = 389; 
-int line_sensor_left_black = 928;
-int line_sensor_right_white = 231;
-int line_sensor_right_black = 904;
+// 553 - 914 - 660 - 937
+int line_sensor_left_white = 553; 
+int line_sensor_left_black = 914;
+int line_sensor_right_white = 660;
+int line_sensor_right_black = 937;
 
 // ----- line_sensor -----
 
@@ -107,11 +112,15 @@ void line_sensor_spin(){
   double line_sensor_right = 1.0d * (analogRead(pin_line_sensor_right) - line_sensor_right_white) / (line_sensor_right_black - line_sensor_right_white);
   line_sensor_left = clip(line_sensor_left, 0.0, 1.0);
   line_sensor_right = clip(line_sensor_right, 0.0, 1.0);
-  control_cmd(line_sensor_left, line_sensor_right);
   if (line_sensor_left + line_sensor_right > line_sensor_sum_lost_threshold){
     line_sensor_left_last = line_sensor_left;
     line_sensor_right_last = line_sensor_right;
+    lost_cmd = 0;
   }
+  else {
+    lost_cmd = sign(line_sensor_right_last - line_sensor_left_last);
+  }
+  control_cmd(line_sensor_left, line_sensor_right);
 }
 
 // ----- button_line_sensor_calibration -----
@@ -157,6 +166,7 @@ void line_sensor_calibration(){
   digitalWrite(pin_led_calibration, !led_state);
   while (digitalRead(pin_button_line_sensor_calibration) == LOW){
     waiting_counter += 1;
+    
     Serial.print(line_sensor_left_white);
     Serial.print(" - ");
     Serial.print(line_sensor_left_black);
@@ -165,6 +175,7 @@ void line_sensor_calibration(){
     Serial.print(" - ");
     Serial.print(line_sensor_right_black);
     Serial.println("");
+    
     if (waiting_counter > 100){
       waiting_counter = 0;
       digitalWrite(pin_led_calibration, led_state);
@@ -240,11 +251,13 @@ double black_encoder_k_I = 0.5;
 double black_encoder_I_windup = 1.0 * pwm_target_crossroads;
 
 double rotate_k_P = 10.0;
-double rotate_k_I = 3.5;
+double rotate_k_I = 2.5;
 double rotate_I_windup = 1.0 * pwm_target_crossroads;
 
-int encoder_ticks_robot_length = 31;
+int encoder_ticks_robot_length = -10; // 31
 int encoder_ticks_half_rotation = 75;
+int encoder_ticks_start = 30;
+int encoder_ticks_stop = 30;
 
 void control_loop_stop(){
   motor_cb(0, pin_motor_dir_left, pin_motor_pwm_left);
@@ -266,7 +279,7 @@ void control_loop_move_steps(int steps){
   motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
   encoder_last_left = encoder_value[0];
   encoder_last_right = encoder_value[1];
-  double error = abs(steps) - (1.0d * (encoder_value[0] + encoder_value[1] - encoder_last_left - encoder_last_right) / 2);
+  double error = 1.0 * abs(steps) - (1.0 * (encoder_value[0] + encoder_value[1] - encoder_last_left - encoder_last_right) / 2);
   double error_I = 0.0;
   while (error > 0.0){
     int control = (int)(round(sign(steps) * abs(black_encoder_k_P * error + black_encoder_k_I * error_I)));
@@ -274,9 +287,15 @@ void control_loop_move_steps(int steps){
     motor_cb(control, pin_motor_dir_left, pin_motor_pwm_left);
     motor_cb(control, pin_motor_dir_right, pin_motor_pwm_right);
     delay(1);
-    error = abs(steps) - (1.0d * (encoder_value[0] + encoder_value[1] - encoder_last_left - encoder_last_right) / 2);
+    error = 1.0 * abs(steps) - (1.0 * (encoder_value[0] + encoder_value[1] - encoder_last_left - encoder_last_right) / 2);
     error_I += error * (1.0 / 1000.0);
     error_I = clip(error_I, -black_encoder_I_windup, black_encoder_I_windup);
+    Serial.println(error);
+    if (error <= 0.001){
+      error = 0.0;
+      error_I = 0.0;
+      break;
+    }
   }
   motor_cb(0, pin_motor_dir_left, pin_motor_pwm_left);
   motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
@@ -287,11 +306,39 @@ void control_loop_rotate_steps(int steps, bool catch_lost = false){
   motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
   encoder_last_left = encoder_value[0];
   encoder_last_right = encoder_value[1];
+  double error_rotate = abs(steps) - 1.0d * (encoder_value[0] + encoder_value[1] - encoder_last_right - encoder_last_left);
+  double error_rotate_I = 0.0;
+  while ((catch_lost && lost_cmd == 0) || (error_rotate > 0.0)){
+    int control_rotate = (int)(round(sign(steps) * abs(rotate_k_P * error_rotate + rotate_k_I * error_rotate_I)));
+    control_rotate = clip(control_rotate, -pwm_target_crossroads, pwm_target_crossroads);
+    motor_cb(control_rotate, pin_motor_dir_left, pin_motor_pwm_left);
+    motor_cb(-control_rotate, pin_motor_dir_right, pin_motor_pwm_right);
+    delay(1);
+    error_rotate = abs(steps) - 1.0d * (encoder_value[0] + encoder_value[1] - encoder_last_right - encoder_last_left);
+    error_rotate_I += error_rotate * (1.0 / 1000.0);
+    error_rotate_I = clip(error_rotate_I, -rotate_I_windup, rotate_I_windup);
+    Serial.println(control_rotate);
+    if (error_rotate <= 0.001){
+      error_rotate = 0.0;
+      error_rotate_I = 0.0;
+      break;
+    }
+  }
+  motor_cb(0, pin_motor_dir_left, pin_motor_pwm_left);
+  motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
+}
+
+void control_loop_rotate_stabilize(){
+  /*
+  motor_cb(0, pin_motor_dir_left, pin_motor_pwm_left);
+  motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
+  encoder_last_left = encoder_value[0];
+  encoder_last_right = encoder_value[1];
   double error_left = abs(steps) - 1.0d * (encoder_value[0] - encoder_last_left);
   double error_left_I = 0.0;
   double error_right = abs(steps) - 1.0d * (encoder_value[1] - encoder_last_right);
   double error_right_I = 0.0;
-  while ((catch_lost && lost_cmd == 0) || (true)){
+  while ((catch_lost && lost_cmd == 0) || (error_left > 0.0 && error_right > 0.0)){
     int control_left = -(int)(round(sign(steps) * abs(rotate_k_P * error_left + rotate_k_I * error_left_I)));
     int control_right = (int)(round(sign(steps) * abs(rotate_k_P * error_right + rotate_k_I * error_right_I)));
     control_left = clip(control_left, -pwm_target_crossroads, pwm_target_crossroads);
@@ -305,19 +352,22 @@ void control_loop_rotate_steps(int steps, bool catch_lost = false){
     error_left_I = clip(error_left_I, -rotate_I_windup, rotate_I_windup);
     error_right_I += error_right * (1.0 / 1000.0);
     error_right_I = clip(error_right_I, -rotate_I_windup, rotate_I_windup);
-    Serial.println(error_left_I);
-    if (error_left < 0.0){
+    Serial.print(error_left);
+    Serial.print(" - ");
+    Serial.println(error_right);
+    if (error_left <= 0.001){
       error_left = 0.0;
       error_left_I = 0.0;
     }
-    if (error_right < 0.0){
+    if (error_right <= 0.001){
       error_right = 0.0;
       error_right_I = 0.0;
     }
-    if (error_left == 0.0 && error_right == 0.0){
+    if (error_left <= 0.001 && error_right <= 0.001){
       break;
     }
   }
+  */
   motor_cb(0, pin_motor_dir_left, pin_motor_pwm_left);
   motor_cb(0, pin_motor_dir_right, pin_motor_pwm_right);
 }
@@ -328,12 +378,6 @@ unsigned long black_encoder_left = 0;
 unsigned long black_encoder_right = 0;
 
 void control_cmd(double line_sensor_left, double line_sensor_right){
-  if (line_sensor_left + line_sensor_right < line_sensor_sum_lost_threshold){
-    lost_cmd = sign(line_sensor_right_last - line_sensor_left_last);
-  }
-  else {
-    lost_cmd = 0;
-  }
   if (line_sensor_left + line_sensor_right > line_sensor_sum_black_threshold) {
     if (forward_cmd % 2 == 0 && forward_cmd > 0){
       forward_cmd -= 1;
@@ -352,11 +396,23 @@ void control_cmd(double line_sensor_left, double line_sensor_right){
   }
   //Serial.print(lost_cmd);
   //Serial.println("");
-  if (rotation_cmd != 0){
-    Serial.print(rotation_cmd);
-    Serial.println("");
-
-    control_loop_rotate_steps(- 2+ * encoder_ticks_half_rotation);
+  
+  //Serial.print(forward_cmd);
+  //Serial.println("");
+  if (start_cmd > 0) {
+    control_loop_move_steps(encoder_ticks_start);
+    start_cmd -= 1;
+  }
+  else if (rotation_cmd != 0){
+    for (int i = 0; i < abs(rotation_cmd) - 1; i++){
+      control_loop_rotate_steps(sign(rotation_cmd) * encoder_ticks_half_rotation, false);
+      control_loop_rotate_stabilize();
+      control_loop_stop();
+    }
+    control_loop_rotate_steps(sign(rotation_cmd) * encoder_ticks_half_rotation / 2, false);
+    control_loop_rotate_steps(sign(rotation_cmd) * encoder_ticks_half_rotation, true);
+    control_loop_rotate_stabilize();
+    control_loop_stop();
     rotation_cmd = 0;
   }
   else if (forward_cmd % 2 == 0 && forward_cmd > 1){
@@ -373,11 +429,52 @@ void control_cmd(double line_sensor_left, double line_sensor_right){
     int encoder_error_right = encoder_last_right - black_encoder_right;
     int encoder_error = (encoder_error_left + encoder_error_right) / 2;
     control_loop_move_steps(encoder_ticks_robot_length - encoder_error);
-
+    control_loop_stop();
     forward_cmd -= 1;
   }
+  else if (stop_cmd > 0){
+    control_loop_move_steps(encoder_ticks_stop);
+    stop_cmd -= 1;
+  }
   else {
-    Serial.println("IDK");
+    iteration += 1;
+    if (iteration == 1){
+      start_cmd = 1;
+      rotation_cmd = 0; // 0 is stop *= 2
+      forward_cmd = -1; // -1 is stop *= 2
+      sonar_move_cmd = -1;
+      stop_cmd = 0;
+
+    } else if (iteration == 2){
+
+      start_cmd = 0;
+      rotation_cmd = 0; // 0 is stop *= 2
+      forward_cmd = 4; // -1 is stop *= 2
+      sonar_move_cmd = -1;
+      stop_cmd = 0;
+
+    } else if (iteration == 3){
+
+      start_cmd = 0;
+      rotation_cmd = 2; // 0 is stop *= 2
+      forward_cmd = -1; // -1 is stop *= 2
+      sonar_move_cmd = -1;
+      stop_cmd = 0;
+
+    } else if (iteration == 4){
+
+      start_cmd = 0;
+      rotation_cmd = 0; // 0 is stop *= 2
+      forward_cmd = 2; // -1 is stop *= 2
+      sonar_move_cmd = -1;
+      stop_cmd = 0;
+
+    }
+    else {
+      control_loop_stop();
+      Serial.println("IDK");
+      delay(1000);
+    }
   }
   /*
   if (line_sensor_left + line_sensor_right < line_sensor_sum_lost_threshold){
@@ -423,7 +520,7 @@ void setup() {
   motor_init();
   button_line_sensor_calibration_init();
 
-  //line_sensor_calibration();
+  line_sensor_calibration();
 }
 
 void loop() {
