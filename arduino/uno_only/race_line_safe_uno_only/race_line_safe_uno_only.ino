@@ -4,10 +4,12 @@
 #define DELAY 0
 
 // ----- local parameters  -----
+#define error_k_pow 0.5
+
 #define pwm_target_max 255
-#define pwm_target_min -60
+#define pwm_target_min -127
 #define pwm_target_lost_max 255
-#define pwm_target_lost_min -60
+#define pwm_target_lost_min -127
 
 #define pin_button_line_sensor_calibration 8
 #define pin_led_calibration 13
@@ -206,6 +208,15 @@ int clip(int value, int value_min, int value_max){
   return value;
 }
 
+double sign(double value){
+  if (value > 0.0){
+    return 1.0;
+  }
+  else {
+    return -1.0;
+  }
+}
+
 void control_cmd(double line_sensor_left, double line_sensor_right){
 
   if (line_sensor_left + line_sensor_right < line_sensor_sum_lost_threshold){
@@ -241,6 +252,9 @@ void control_cmd(double line_sensor_left, double line_sensor_right){
     Serial.print(line_sensor_right);
     Serial.println("");
     double error = line_sensor_left - line_sensor_right;
+
+    error = sign(error) * pow(abs(error), error_k_pow);
+    
     int cmd_left = pwm_target_max - (int)(error * (pwm_target_max - pwm_target_min));
     int cmd_right = pwm_target_max + (int)(error * (pwm_target_max - pwm_target_min));
     cmd_left = clip(cmd_left, pwm_target_min, pwm_target_max);
