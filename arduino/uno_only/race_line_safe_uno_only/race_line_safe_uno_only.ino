@@ -7,8 +7,8 @@
 #define error_k_pow 1.0 
 #define error_k_P 1.0
 #define error_k_I 0.1
-#define error_k_D 0.0
-#define error_I_windup 0.2
+#define error_k_D 0.5
+#define error_I_windup 0.4
 
 #define pwm_target_max 255
 #define pwm_target_min -127
@@ -288,7 +288,7 @@ void control_cmd(double line_sensor_left, double line_sensor_right){
 // ----- main -----
 
 void setup() {
-  Serial.begin(115200);
+  //Serial.begin(115200);
   line_sensor_init();
   encoder_init();
   motor_init();
