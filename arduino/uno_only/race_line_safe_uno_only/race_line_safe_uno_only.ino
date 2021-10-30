@@ -4,7 +4,11 @@
 #define DELAY 0
 
 // ----- local parameters  -----
-#define error_k_pow 0.5
+#define error_k_pow 1.0 
+#define error_k_P 1.0
+#define error_k_I 0.1
+#define error_k_D 0.0
+#define error_I_windup 0.2
 
 #define pwm_target_max 255
 #define pwm_target_min -127
@@ -217,8 +221,13 @@ double sign(double value){
   }
 }
 
-void control_cmd(double line_sensor_left, double line_sensor_right){
 
+double error_I = 0.0;
+double error_last = 0.0;
+double error_time_last = 0;
+
+void control_cmd(double line_sensor_left, double line_sensor_right){
+  unsigned long error_time_new = millis();
   if (line_sensor_left + line_sensor_right < line_sensor_sum_lost_threshold){
     double line_sensor_error = line_sensor_right_last - line_sensor_left_last;
     int cmd_direction = 0;
@@ -229,31 +238,39 @@ void control_cmd(double line_sensor_left, double line_sensor_right){
       motor_cb(pwm_target_lost_min, pin_motor_dir_left, pin_motor_pwm_left);
       motor_cb(pwm_target_lost_max, pin_motor_dir_right, pin_motor_pwm_right);
     }
-
+    error_I = 0.0;
+    error_last = 0.0;
+    /*
     Serial.print(cmd_direction);
     Serial.print(" = ");
     Serial.print("LOST");
     Serial.println("");
-
-    
+    */
   }
   else if (line_sensor_left + line_sensor_right > line_sensor_sum_black_threshold) {
-
+    /*
     Serial.print("BLACK");
     Serial.println("");
-    
+    */
     motor_cb(pwm_target_max, pin_motor_dir_left, pin_motor_pwm_left);
     motor_cb(pwm_target_max, pin_motor_dir_right, pin_motor_pwm_right);
+    error_I = 0.0;
+    error_last = 0.0;
   }
   else {
-    
+    /*
     Serial.print(line_sensor_left);
     Serial.print(" - ");
     Serial.print(line_sensor_right);
     Serial.println("");
+    */
     double error = line_sensor_left - line_sensor_right;
-
-    error = sign(error) * pow(abs(error), error_k_pow);
+    error_I += error;
+    error_I = clip(error_I, -error_I_windup, error_I_windup);
+    double error_D = (error - error_last) / (1.0 * error_time_new - 1.0 * error_time_last);
+    
+    double error_cmd = error_k_P * error + error_k_I * error_I + error_k_D * error_D;
+    error_cmd = sign(error_cmd) * pow(abs(error), error_k_pow);
     
     int cmd_left = pwm_target_max - (int)(error * (pwm_target_max - pwm_target_min));
     int cmd_right = pwm_target_max + (int)(error * (pwm_target_max - pwm_target_min));
@@ -263,6 +280,8 @@ void control_cmd(double line_sensor_left, double line_sensor_right){
     motor_cb(cmd_left, pin_motor_dir_left, pin_motor_pwm_left);
     motor_cb(cmd_right, pin_motor_dir_right, pin_motor_pwm_right);
   }
+  
+  error_time_last = millis();
 }
 
 
