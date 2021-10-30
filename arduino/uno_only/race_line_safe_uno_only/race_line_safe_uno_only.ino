@@ -5,9 +5,9 @@
 
 // ----- local parameters  -----
 #define pwm_target_max 255
-#define pwm_target_min -120
+#define pwm_target_min -60
 #define pwm_target_lost_max 255
-#define pwm_target_lost_min -120
+#define pwm_target_lost_min -60
 
 #define pin_button_line_sensor_calibration 8
 #define pin_led_calibration 13
@@ -196,6 +196,16 @@ void motor_securely_system_update(){
 
 // ----- control_cmd -----
 
+int clip(int value, int value_min, int value_max){
+  if (value > value_max){
+    value = value_max;
+  }
+  if (value < value_min){
+    value = value_min;
+  }
+  return value;
+}
+
 void control_cmd(double line_sensor_left, double line_sensor_right){
 
   if (line_sensor_left + line_sensor_right < line_sensor_sum_lost_threshold){
@@ -208,31 +218,36 @@ void control_cmd(double line_sensor_left, double line_sensor_right){
       motor_cb(pwm_target_lost_min, pin_motor_dir_left, pin_motor_pwm_left);
       motor_cb(pwm_target_lost_max, pin_motor_dir_right, pin_motor_pwm_right);
     }
-    /*
+
     Serial.print(cmd_direction);
     Serial.print(" = ");
     Serial.print("LOST");
     Serial.println("");
-    */
+
     
   }
   else if (line_sensor_left + line_sensor_right > line_sensor_sum_black_threshold) {
-    /*
+
     Serial.print("BLACK");
     Serial.println("");
-    */
+    
     motor_cb(pwm_target_max, pin_motor_dir_left, pin_motor_pwm_left);
     motor_cb(pwm_target_max, pin_motor_dir_right, pin_motor_pwm_right);
   }
   else {
-    /*
+    
     Serial.print(line_sensor_left);
     Serial.print(" - ");
     Serial.print(line_sensor_right);
     Serial.println("");
-    */
-    motor_cb(pwm_target_max - (int)(line_sensor_left * (pwm_target_max - pwm_target_min)), pin_motor_dir_left, pin_motor_pwm_left);
-    motor_cb(pwm_target_max - (int)(line_sensor_right * (pwm_target_max - pwm_target_min)), pin_motor_dir_right, pin_motor_pwm_right);
+    double error = line_sensor_left - line_sensor_right;
+    int cmd_left = pwm_target_max - (int)(error * (pwm_target_max - pwm_target_min));
+    int cmd_right = pwm_target_max + (int)(error * (pwm_target_max - pwm_target_min));
+    cmd_left = clip(cmd_left, pwm_target_min, pwm_target_max);
+    cmd_right = clip(cmd_right, pwm_target_min, pwm_target_max);
+    
+    motor_cb(cmd_left, pin_motor_dir_left, pin_motor_pwm_left);
+    motor_cb(cmd_right, pin_motor_dir_right, pin_motor_pwm_right);
   }
 }
 
